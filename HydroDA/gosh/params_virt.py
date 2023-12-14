@@ -1,0 +1,457 @@
+#!/opt/local/bin/python
+# -*- coding: utf-8 -*-
+import numpy as np
+import re
+
+########################
+#
+# parameters list
+#
+########################
+# **************************************************************
+# 0. HydroDA version
+def version():
+    return "HydroDA version 1.0.0"
+    # version for WSE assimilation / observation localization
+    # CaMa-Flood v396a used
+
+# **************************************************************
+# 1. experiment type related definitions
+def mode():
+    return 5
+    # parameter to change assimilation mode
+    # runoff ensembles will change accordingly.
+    # 1: Earth2Obs, 2: ERA20CM, 3: VIC_BC, 4: -25% biased (ELSE_KIM2009/E2O/ERA20CM) 5:isimip3a
+
+def conflag():
+    return 1
+    # conversation flag for observation conversations 
+    #  1 - Directly values 
+    #  2 - Anomalies
+    #  3 - Normalized values
+    #  4 - Log converted values
+
+def mapname():
+    # return "amz_06min"
+    return "glb_15min"
+    # related CaMa-Flood map directory
+    # [e.g. : glb_15min, glb_06min, Mkg_06min, etc.]
+    # Check 
+
+def map_dimension():
+    fname=CaMa_dir()+"/map/"+mapname()+"/params.txt"
+    with open(fname,"r") as f:
+        lines=f.readlines()
+    #-------
+    nx     = int(filter(None, re.split(" ",lines[0]))[0])
+    ny     = int(filter(None, re.split(" ",lines[1]))[0])
+    gsize  = float(filter(None, re.split(" ",lines[3]))[0])
+    return nx,ny,gsize
+
+def experiment():
+    with open("./exp.txt","r") as f:
+        line=f.readline()
+    exp =line.split("\n")[0]
+    return exp
+
+# **************************************************************
+# 2. Data assimilation related definitions
+def assimS():
+    # return -20
+    return -80
+    # data Assimilation's Region (South Edge at latitude)
+    # *note: should be larger or equal to -80
+
+def assimN():
+    # return 5
+    return 80
+    # data Assimilation's Region (North Edge at latitude)
+    # *note: should be smaller or equal to 80
+
+def assimW():
+    # return -80
+    return -180
+    #return -68.25 # use this for disabling west side of the Amazon basin's observation
+    # data Assimilation's Region (West Edge at latitude)
+    # *note: should be larger or equal to -170
+
+def assimE():
+    # return -45
+    return 180
+    # data Assimilation's Region (East Edge at latitude)
+    # *note: should be smaller or equal to 170
+
+def patch_size():
+    # return 0
+    return 100
+    # the size of the local patch of LETKF(Local ** EnKF)
+    # 0: only 1 pixel (the pixel itself) belongs to its local patch
+    # 100: empirical local patch
+
+def DA_dir():
+    return "/cluster/data6/menaka/HydroDA"
+    # directory of HydroDA
+    # where src, dat, sat, out exits
+
+def patch_dir():
+    return "/cluster/data6/menaka/Empirical_LocalPatch/local_patch"
+    #return "/cluster/data6/menaka/covariance/local_patch"
+    #return "/cluster/data6/menaka/covariance/local_patchMS"
+    #return "/cluster/data6/menaka/covariance/local_patch_0.80"
+
+def patch_name():
+    # return "amz_06min_S14FD_80"
+    # return "amz_06min_S14FD_60"
+    # return "amz_06min_S14FD_40"
+    # return "amz_06min_S14FD_20"
+    # return "glb_15min_S14FD_60"
+    return "glb_15min_S14FD_60_dam"
+
+def patch_id():
+    # return "0.80"
+    # return "0.60"
+    # return "0.40"
+    # return "0.20"
+    return "0.60-dam"
+
+def thersold():
+    # return 0.80
+    return 0.60
+    # return 0.40
+    # return 0.20
+    # threshold to define the local patch
+
+def initial_infl():
+    return 1.08
+    # initial inflation parameter
+
+def rho():
+    # return -1.0
+    return 1.00
+    # return 1.08
+    # -1.0 : adaptive inflation will be used as in Myoshi et al (2011)
+    # positive : fixed inflation parameter will be used
+    # [E.g. 1.08, 1.10]
+
+def sigma_b():
+    return 0.0400000
+    # background variance of inflation for adaptive inflation Myoshi et al (2011)
+
+def ens_mem(mode=mode()):
+    return 20
+    # if mode == 1:
+    #     return 49
+    
+    # if mode == 2:
+    #     return 20
+
+    # if mode == 3:
+    #     return 20
+
+    # if mode == 4:
+    #     return 20
+
+    # if mode == 5:
+    #     return 20
+    # number of ensemble members
+
+# **************************************************************
+# 3. Experiment timings 
+def timestep():
+    return 86400 # outer timestep in seconds
+
+def starttime():
+    return (2001,1,1) # start date: [year,month,date]
+
+def endtime():
+    return (2002,1,1) # end date: [year,month,date]
+                      # *note: this date is not included
+
+# **************************************************************
+# 4. Spinup options
+def spinup_mode():
+    return 3
+    # 0: do spinup simulation for both (corrupted and true) simulation
+    # 1: do spin up only at corrupted simulation
+    # 2: do spin up only at true simulation
+    # 3: no spinup simulation at all
+    # 4: copy restart file from previous data
+    ### if initial restart file is ready, spinup simulation is no need
+
+def spinup_end_year():
+    return 2000
+
+def spinup_end_month():
+    return 12
+
+def spinup_end_date():
+    return 31
+
+# **************************************************************
+# 5. Runoff forcing 
+def runoff_dir():
+    # return "/cluster/data6/menaka/ensemble_simulations/CaMa_in/E2O"
+    return "/work/a06/menaka/ensemble_simulations/CaMa_in/isimip3a"
+
+def runname(num=mode()):
+    return "isimip3a"
+    # if num == 1:
+    #     return "E2O"
+
+    # if num == 2:
+    #     return "ERA20CM"
+
+    # if num == 3:
+    #     return "VIC_BC"
+
+    # if num == 4: #biased runoff experiment
+    #     #return "ELSE_KIM2009"
+    #     return "E2O"
+    #     #return "ERA20CM"
+
+    # if num == 5: 
+    #     return "isimip3a"
+
+
+def input(num=mode()):
+    return "isimip3a"
+    # if num==1:
+    #     return "E2O"
+
+    # if num==2:
+    #     return "ERA20CM"
+
+    # if num==3:
+    #     return "VIC_BC"
+
+    # if num==5:
+    #     return "isimip3a"
+    # define the runoff data type.
+    
+def max_lat():
+    return 80. # maximum latitude of assimilation
+               # *note: SWOT ovservation is not available beyond 80 degs. this should be less or equal to 80
+               ## modified 2018-06-05
+
+def distopen(num=1):
+    # return 1.0
+    if num == 1:
+        return 1.0
+
+    if num == 2:
+        return 1.0
+
+    if num == 3:
+        return 1.0
+    #return 0.75 # not needed for ERA20CM
+    # corrupted runoff's percentage
+    # 0.75 for original Data Assimilation simulation (25% reduced)
+    # 1.25 for 25% increased simulation
+    # 1.00 for simulation using 1 year before runoff
+    # *note: also editing and and re-compile of control_inp at CaMa-Flood is necessary
+
+def diststd(num=1):
+    # return 0.25
+    if num == 1:
+        return 0.1
+
+    if num == 2:
+        return 0.25
+
+    if num == 3:
+        return 0.25
+
+    #return 1.0 # not needed for ERA20CM
+    # noise to make runoff input to scatter ensembles
+
+def err_expansion():
+    return 1.0
+    # variance-covariance expansion
+    # works well with 0.04
+
+# # def rivman_error():
+# #     return 0
+# #     #define the experiment with or without rivman error
+# #     # 0 : with out manning error
+# #     # 1 : with manning error: Manning's n depend on river width
+# #     # 2 : with manning error: Manning's n depend spatial covariance
+# #     # 3 : with manning error: Manning's n randomly distributed subbasin
+# #     # 4 : with manning error: Manning's n randomly distributed
+# #     # 5 : with manning error: Manning's n depend on rivseq
+# #     # 6 : with manning error: Manning's n depend on uparea
+# #     # 7 : with manning error: Manning's n depend on
+
+def run_flag():
+    return 3
+    # 0 run all simulations
+    # 1 run only corrupted and assimilated simulations
+    # 2 run only true and assimilated simulations
+    # 3 run only assimilated simulation
+
+def true_run(num):
+    if num == 1:
+        return 3 # ecmwf as true
+
+    if num == 2:
+        return 4 # ERA04 as true
+
+    if num == 3: # only one will be used
+        return 3
+# **************************************************************
+# 6. CaMa-Flood settings
+def CaMa_ver():
+    # return "CaMa-Flood version 3.9.6"
+    # return "CaMa-Flood version 4.0.0"
+    return "CaMa-Flood version 4.1.0"
+
+def CaMa_dir():
+    # return "/cluster/data6/menaka/CaMa-Flood_v396a_20200514"
+    #return "/cluster/data6/menaka/CaMa-Flood_v396_20191225"
+    #return "/cluster/data6/menaka/CaMa-Flood_v395b_20191030"
+    # return "/cluster/data6/menaka/CaMa-Flood_v4"
+    return "/cluster/data6/menaka/CaMa-Flood_v410"
+    # directory of CaMa-Flood
+    # indicate the directory of ./map or ./src and other folders
+
+def calibrate():
+    # return "yes"
+    return "no"
+
+def corrupt(): ### not needed
+    return 0
+    # define the experiment with or without corrupted parameters
+    # 0 : no parameter corrupted
+    # 1 : with corrupted rivhgt
+    # 2 : with corrupted rivwth
+    # 3 : with corrupted rivman
+    # 4 : with corrupted fldhgt
+    # 5 : with corrupted rivhgt, rivwth, rivman, and fldhgt
+
+def option():
+    # return "all" # for bifurcation and dam on
+    return "bif" # for bifurcation on
+    # return "dam" # for dam on
+    # return "levee" # for levee on
+    # for CaMa-Flood options
+
+def varout():
+    return "outflw"
+    # return "rivout, outflw, fldout, fldhgt" 
+    # names of variables to be copied from CaMa-Flood to assim_out
+    # *note: give names with comma and space between each name
+    # *note: names should be similar to the names in CaMa-Flood output
+
+def MKLdir():
+    return "/opt/intel/compilers_and_libraries_2016.3.170/mac/mkl"
+    # directory of Intel MKL files
+    # Intel MKL is needed for doing data assimilation
+    # Please Download and Instal it to your System before running
+    # for more information --> https://software.intel.com/en-us/qualify-for-free-software/academicresearcher
+
+def output_er():
+    return 1
+    # setting for saving or deleting intermediate files
+    # 0 for saving & 1 for deleting
+    # those files may be more than 400GB, so erasing is recommended if not necessary
+
+# **************************************************************
+# 7. observations settings
+def obs_name():
+    # return "HydroWeb"
+    return "SWOT"
+
+def HydroWeb_dir(): ## not used in current version
+    return "/cluster/data6/menaka/HydroWeb"
+
+def obs_dir():
+    # return "/cluster/data6/menaka/HydroWeb"
+    # return "/cluster/data6/menaka/ensemble_org/CaMa_out/E2O003"
+    # return "/cluster/data6/menaka/dev_CaMa-Flood_v4/CaMa-Flood_v4/out/test-dev_HanazakiDam"
+    # return "/cluster/data7/menaka/HydroDA/obs/SWOTH08"
+    # return "/cluster/data7/menaka/HydroDA/obs/SWOT_CaMaH08_org"
+    # return "/cluster/data7/menaka/HydroDA/obs/SWOT_CaMaH08_rivhgt"
+    # return "/cluster/data7/menaka/HydroDA/obs/SWOT_CaMaH08_rivwth"
+    # return "/cluster/data7/menaka/HydroDA/obs/SWOT_CaMaH08_rivman"
+    # return "/cluster/data7/menaka/HydroDA/obs/SWOT_CaMaH08_fldhgt"
+    return "/cluster/data7/menaka/HydroDA/obs/SWOT_CaMaH08_all_004"
+
+def obs_list(): # not used in current version
+    return DA_dir()+"/dat/HydroWeb_alloc_"+mapname()+"_amz.txt"
+
+def stat_name(cal=calibrate()):
+    return "sfcelv_49_E2O_amz_06min_2000-2014"
+    # if cal=="yes":
+    #     return "cal_sfcelv_49_E2O_amz_06min_2000-2014" # for lon-term statistic simulation calibrated
+    #     # return "cal_sfcelv_49_E2O_amz_06min_2009-2014" # for lon-term statistic simulation calibrated
+
+    # if cal=="no":
+    #     return "sfcelv_49_E2O_amz_06min_2000-2014" # for long-term statistic simulation
+
+    # # return "sfcelv_E2O_amz_06min_2009-2009"
+
+def make_log():
+    return 1
+    # setting for making log files
+    # 1 is for making and 0 is for not making
+
+def slack_notification():
+    return 0
+    # setting for validating slack notification
+    # 1 for valid and 0 for invalid
+    # 0 is a default if you are not familiar with slack
+    # if you turn it to 1, you need to edit sendslack.py
+    # for more information refer https://api.slack.com/incoming-webhooks
+
+######### Not currently in use
+# # def ens_at_non():
+# #     return 1
+# #     # * At Recent version, ensemble generating random number is constant for full simulation.
+# #     # (For example, when ensemble 001 is corrupted with -0.1 at day 1, ensemble 001 will be always corrupted with 0.1 for full simulation period.)
+# #     # Previously, ensemble mean was used as an assimilated value for non-observed location.
+# #     # In this version, this treatment has changed and non-observed location is given with an ensemble value.
+# #     # To enable this new feature, set the return of params.py method “ens_at_non()”, “1”(DEFAULT SETTING).
+# #     # If you don’t want to use this, set it to “0”.
+
+# # # functions for corrupting manning coeffcient ###################
+# # # this is for corrupting manning coefficient at Corrupted Simulation
+# # # manning coefficient will be corrupted with random numbers generated from following functions
+# # # the random number is generated for each ensemble member
+# # # random number is made by gaussian noise of average = corruptman_base(), stddev = corruptman_std()
+# # def corruptman_base():
+# #     return 0.03
+
+# # def corruptman_std():
+# #     return 0.015
+
+# # def rivman_base():
+# #     return 0.03
+
+# # def rivman_min():
+# #     return 0.025
+
+# # def rivman_max():
+# #     return 0.035
+
+# # def corruptele_base():
+# #     return 0.5 # not needed for ERA20CM
+
+# # def corruptele_std():
+# #     return 0.25 # not needed for ERA20CM
+
+# # def non_hgt():
+# #     return 7.0 # not needed for ERA20CM
+# #     # nominal water height
+
+# **************************************************************
+# 8. parallel run settings
+def para_nums():
+    return 10
+    # setting number of parallels to run CaMa-Flood Model
+    # default is 6, but may change depending on your system
+
+def cpu_nums():
+    with open("./ncpus.txt","r") as f:
+        line=f.readline()
+    ncpus =int(line.split("\n")[0])
+    return ncpus/para_nums()
+    # number of cpus used
